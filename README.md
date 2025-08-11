@@ -23,7 +23,7 @@ See workflows included in this repository for basic usage.
 
 This correspond to the diffusion timestep around which the model used is supposed to start using the low noise expert. For Wan 2.2 T2V, this value should be `0.875`,  For Wan 2.2 I2V, the value should be `0.900`. Using other values might still work.
 
-Note that diffusion timesteps is NOT the same thing as denoising steps at all. You could think of the diffusion timesetp roughly as how much noise is added in the image (during training). At timestep `0`, the image is clean, with no noise added.  At a timestep of `1`, the image/video is pure noise. The timestep is realated to the corresponding denoising step with a non-linear relationship that depends on the total number of steps, the sampling method used, and the noise scheduler (and sigma shift).
+Note that diffusion timesteps is NOT the same thing as denoising steps at all. You could think of the diffusion timesetp roughly as how much noise is added in the image (during training). At timestep `0`, the image is clean, with no noise added.  At a timestep of `1`, the image/video is pure noise. And for Wan2.2 a14B T2V model, around timestep `0.875`, the video should be half noise, half useful data (`0.9` for I2V). The timestep is realated to the corresponding denoising step with a non-linear relationship that depends on the total number of steps, the sampling method used, and the noise scheduler (and sigma shift).
 
 
 ## License
