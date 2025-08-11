@@ -36,8 +36,6 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     # why are timesteps 0-1000?
     sampling = model_high_noise.get_model_object("model_sampling")
     timesteps = [sampling.timestep(sigma)/1000 for sigma in sigmas.tolist()]
-    print(sigmas.tolist())
-    print(timesteps)
     switching_step = steps
     for (i,t) in enumerate(timesteps[1:]):
         if t < boundary:
