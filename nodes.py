@@ -31,17 +31,16 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
         last_step=9999
 
     # first, we get all sigmas
-    sampler = comfy.samplers.KSampler(model_high_noise, steps=steps, device=model_high_noise.load_device, sampler=sampler_name, scheduler=scheduler, denoise=denoise, model_options=model_high_noise.model_options)
-    sigmas = sampler.sigmas
-    # why are timesteps 0-1000?
     sampling = model_high_noise.get_model_object("model_sampling")
+    sigmas = comfy.samplers.calculate_sigmas(sampling,scheduler,steps)
+    # why are timesteps 0-1000?
     timesteps = [sampling.timestep(sigma)/1000 for sigma in sigmas.tolist()]
     switching_step = steps
     for (i,t) in enumerate(timesteps[1:]):
         if t < boundary:
             switching_step = i
             break
-    print(f"switching model at step {i}")
+    print(f"switching model at step {switching_step}")
     start_with_high = start_step<switching_step
     end_wth_low = last_step>=switching_step
 
