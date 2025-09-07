@@ -12,7 +12,7 @@ To install this node, follow these steps:
 2. Restart ComfyUI to load the new node.
 
 ```bash
-git clone https://github.com/stduhpf/ComfyUI--WanMoeKSampler.git /path/to/ComfyUI/custom_nodes/WanMoeKSampler
+git clone https://github.com/stduhpf/ComfyUI-WanMoeKSampler /path/to/ComfyUI/custom_nodes/WanMoeKSampler
 ```
 
 ## Usage
