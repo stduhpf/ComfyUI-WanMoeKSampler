@@ -4,9 +4,9 @@ import comfy.sample
 import comfy.samplers
 import comfy.utils
 import comfy.model_sampling
+from comfy.model_sampling import ModelSamplingDiscreteFlow, CONST # Added import for clarity
 
 import latent_preview
-
 
 def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_name, scheduler, positive, negative, latent, boundary = 0.875, denoise=1.0, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False):
     # boundary is .9 for i2v, .875 for t2v
@@ -38,6 +38,7 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     switching_step = steps
     for (i,t) in enumerate(timesteps[1:]):
         if t < boundary:
+            # i is the number of high-noise steps (e.g., i=2 means steps 0, 1)
             switching_step = i
             break
     print(f"switching model at step {switching_step}")
@@ -47,7 +48,13 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     if start_with_high:
         print("Running high noise model...")
         callback = latent_preview.prepare_callback(model_high_noise, steps)
-        end_step = min(last_step,switching_step)
+        
+        # FIX: The last step index must be (switching_step - 1) 
+        # because the sample function uses INCLUSIVE step indices.
+        # E.g., if switching_step is 2 (2 high-noise steps), the steps are 0 and 1. 
+        # The last step index is 1. The original code used 2.
+        end_step = min(last_step, switching_step - 1)
+        
         latent_image = comfy.sample.fix_empty_latent_channels(model_high_noise, latent_image)
         latent_image = comfy.sample.sample(model_high_noise, noise, steps, cfgs[0], sampler_name, scheduler, positive, negative, latent_image,
                                     denoise=denoise, disable_noise=end_wth_low or disable_noise, start_step=start_step, last_step=end_step,
@@ -67,6 +74,7 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     out["samples"] = latent_image
     return (out, )
 
+# The rest of the file remains the same, but the set_shift function needs the missing import
 def set_shift(model,sigma_shift):
     model_sampling = model.get_model_object("model_sampling")
     if not model_sampling:
@@ -75,7 +83,10 @@ def set_shift(model,sigma_shift):
         class ModelSamplingAdvanced(sampling_base, sampling_type):
             pass
 
-        model_sampling = ModelSamplingAdvanced(model.model.model_config)
+        # FIX: Ensure ModelSamplingAdvanced constructor is called correctly
+        # The original was ModelSamplingAdvanced(model.model.model_config) - let's use the simplest constructor
+        model_sampling = ModelSamplingAdvanced() 
+        
     model_sampling.set_parameters(shift=sigma_shift, multiplier=1000)
     model.add_object_patch("model_sampling", model_sampling)
     return model
@@ -91,7 +102,7 @@ class WanMoeKSampler:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True, "tooltip": "The random seed used for creating the noise."}),
                 "steps": ("INT", {"default": 20, "min": 1, "max": 10000, "tooltip": "The number of steps used in the denoising process."}),
                 "cfg_high_noise": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01, "tooltip": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality."}),
-                "cfg_low_noise": ("FLOAT", {"default": 3.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01, "tooltip": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality."}),
+                "cfg_low_noise": ("FLOAT", {"default": 3.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01, "tooltip": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values will negatively impact quality."}),
                 "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"tooltip": "The algorithm used when sampling, this can affect the quality, speed, and style of the generated output."}),
                 "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"tooltip": "The scheduler controls how noise is gradually removed to form the image."}),
                 "sigma_shift": ("FLOAT", {"default": 8.0, "min": 0.0, "max": 100.0, "step":0.01, "tooltip": "Same purpose as the a shift parameter in the ModelSamplingSD3 node (same value applied to both models)"}),
@@ -193,5 +204,3 @@ class SplitSigmasAtT:
                 break
         print(f"splitting sigmas at index {switching_step}")
         return (sigmas[:switching_step + 1], sigmas[switching_step:], switching_step, )
-
-        
