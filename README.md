@@ -14,7 +14,7 @@ To install this node, follow these steps:
 2. Restart ComfyUI to load the new node.
 
 ```bash
-git clone https://github.com/stduhpf/ComfyUI--WanMoeKSampler.git /path/to/ComfyUI/custom_nodes/WanMoeKSampler
+git clone https://github.com/GalaxyTimeMachine/ComfyUI-WanMoeKSampler.git /path-to-ComfyUI/custom_nodes/WanMoeKSampler
 ```
 
 ## Usage
@@ -26,6 +26,8 @@ See workflows included in this repository for basic usage.
 This correspond to the diffusion timestep around which the model used is supposed to start using the low noise expert. For Wan 2.2 T2V, this value should be `0.875`,  For Wan 2.2 I2V, the value should be `0.900`. Using other values might still work.
 
 Note that diffusion timesteps is NOT the same thing as denoising steps at all. You could think of the diffusion timesetp roughly as how much noise is added in the image (during training). At timestep `0`, the image is clean, with no noise added.  At a timestep of `1`, the image/video is pure noise. And for Wan2.2 a14B T2V model, around timestep `0.875`(`0.9` for I2V), the video should be half noise, half useful data. The timestep is realated to the corresponding denoising step with a non-linear relationship that depends on the total number of steps, the sampling method used, and the noise scheduler (and sigma shift).
+
+A good way to control where the high/low split occurs is by increasing or decreasing the sigma_shift. The higher you set that to, the later the switch will occur. (I've found that 6.00 is good for most things, but play with it)
 
 
 ## License
