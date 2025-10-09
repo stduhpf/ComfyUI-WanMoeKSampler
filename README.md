@@ -1,3 +1,5 @@
+This repo was forked, due to the original not being maintained since it's creation, 2 months ago.
+
 # KSampler for Wan 2.2 MoE for ComfyUI
 
 These nodes are made to support "Mixture of Expert" Flow models with the architecture of Wan2.2 A14B (With a high noise expert and low noise expert).
