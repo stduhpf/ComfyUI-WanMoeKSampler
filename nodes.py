@@ -8,8 +8,7 @@ from comfy.model_sampling import ModelSamplingDiscreteFlow, CONST # Added import
 
 import latent_preview
 
-def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_name, scheduler, positive, negative, latent, boundary = 0.875, denoise=1.0, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False):
-    # boundary is .9 for i2v, .875 for t2v
+def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_name, scheduler, positive, negative, latent, boundary=0.875, denoise=1.0, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False):
     latent_image = latent["samples"]
 
     if disable_noise:
@@ -22,52 +21,51 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     if "noise_mask" in latent:
         noise_mask = latent["noise_mask"]
 
-    disable_pbar = not comfy.utils.PROGRESS_BAR_ENABLED
-    assert start_step is None or start_step < steps
-    assert last_step is None or last_step >= start_step
-    if start_step is None:
-        start_step = 0
-    if last_step is None:
-        last_step=9999
+    # --- Start of Final Logic ---
 
-    # first, we get all sigmas
     sampling = model_high_noise.get_model_object("model_sampling")
-    sigmas = comfy.samplers.calculate_sigmas(sampling,scheduler,steps)
-    # why are timesteps 0-1000?
-    timesteps = [sampling.timestep(sigma)/1000 for sigma in sigmas.tolist()]
-    switching_step = steps
-    for (i,t) in enumerate(timesteps[1:]):
+    sigmas = comfy.samplers.calculate_sigmas(sampling, scheduler, steps)
+    timesteps = [sampling.timestep(sigma) / 1000 for sigma in sigmas.tolist()]
+    
+    # This is the number of steps the high-noise model should run.
+    # It is also the step index where the low-noise model will begin.
+    split_at_step = steps
+    for i, t in enumerate(timesteps):
+        if i == 0: continue
         if t < boundary:
-            # i is the number of high-noise steps (e.g., i=2 means steps 0, 1)
-            switching_step = i
+            split_at_step = i
             break
-    print(f"switching model at step {switching_step}")
-    start_with_high = start_step<switching_step
-    end_wth_low = last_step>=switching_step
+            
+    print(f"Switching model at step {split_at_step}. High-noise runs {split_at_step} steps, Low-noise runs {steps - split_at_step} steps.")
 
-    if start_with_high:
-        print("Running high noise model...")
+    # Clamp the user-defined start/end to the total steps
+    start_at = 0 if start_step is None else start_step
+    end_at = steps if last_step is None else min(steps, last_step)
+
+    # Define the exclusive boundaries for each model
+    high_noise_end_step = min(end_at, split_at_step)
+    low_noise_start_step = max(start_at, split_at_step)
+
+    # --- End of Final Logic ---
+
+    disable_pbar = not comfy.utils.PROGRESS_BAR_ENABLED
+    
+    # Run high-noise model if its step range is valid
+    if start_at < high_noise_end_step:
+        print(f"Running high noise model for steps {start_at} to {high_noise_end_step - 1}...")
         callback = latent_preview.prepare_callback(model_high_noise, steps)
-        
-        # FIX: The last step index must be (switching_step - 1) 
-        # because the sample function uses INCLUSIVE step indices.
-        # E.g., if switching_step is 2 (2 high-noise steps), the steps are 0 and 1. 
-        # The last step index is 1. The original code used 2.
-        end_step = min(last_step, switching_step - 1)
-        
         latent_image = comfy.sample.fix_empty_latent_channels(model_high_noise, latent_image)
         latent_image = comfy.sample.sample(model_high_noise, noise, steps, cfgs[0], sampler_name, scheduler, positive, negative, latent_image,
-                                    denoise=denoise, disable_noise=end_wth_low or disable_noise, start_step=start_step, last_step=end_step,
-                                    force_full_denoise=end_wth_low or force_full_denoise, noise_mask=noise_mask, callback=callback, disable_pbar=disable_pbar, seed=seed)
+                                    denoise=denoise, disable_noise=(low_noise_start_step < end_at) or disable_noise, start_step=start_at, last_step=high_noise_end_step,
+                                    force_full_denoise=(low_noise_start_step >= end_at) or force_full_denoise, noise_mask=noise_mask, callback=callback, disable_pbar=disable_pbar, seed=seed)
 
-
-    if end_wth_low:
-        print("Running low noise model...")
+    # Run low-noise model if its step range is valid
+    if low_noise_start_step < end_at:
+        print(f"Running low noise model for steps {low_noise_start_step} to {end_at - 1}...")
         callback = latent_preview.prepare_callback(model_low_noise, steps)
-        begin_step = max(start_step, switching_step)
         latent_image = comfy.sample.fix_empty_latent_channels(model_low_noise, latent_image)
         latent_image = comfy.sample.sample(model_low_noise, noise, steps, cfgs[1], sampler_name, scheduler, positive, negative, latent_image,
-                                    denoise=denoise, disable_noise=disable_noise, start_step=begin_step, last_step=last_step,
+                                    denoise=denoise, disable_noise=disable_noise, start_step=low_noise_start_step, last_step=end_at,
                                     force_full_denoise=force_full_denoise, noise_mask=noise_mask, callback=callback, disable_pbar=disable_pbar, seed=seed)
 
     out = latent.copy()
@@ -200,7 +198,7 @@ class SplitSigmasAtT:
         switching_step = sigmas.size(0)
         for (i,t) in enumerate(timesteps[1:]):
             if t < boundary:
-                switching_step = i
+                switching_step = i + 1
                 break
         print(f"splitting sigmas at index {switching_step}")
         return (sigmas[:switching_step + 1], sigmas[switching_step:], switching_step, )
