@@ -27,8 +27,10 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     assert last_step is None or last_step >= start_step
     if start_step is None:
         start_step = 0
-    if last_step is None:
-        last_step=9999
+    if last_step is None or last_step >= steps:
+        # FIX: Ensure last_step is constrained to the maximum step index (steps - 1)
+        # This prevents the low-noise sampler from stopping one step early.
+        last_step = steps - 1
 
     # first, we get all sigmas
     sampling = model_high_noise.get_model_object("model_sampling")
@@ -38,7 +40,6 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     switching_step = steps
     for (i,t) in enumerate(timesteps[1:]):
         if t < boundary:
-            # i is the number of high-noise steps (e.g., i=2 means steps 0, 1)
             switching_step = i
             break
     print(f"switching model at step {switching_step}")
@@ -48,13 +49,8 @@ def wan_ksampler(model_high_noise, model_low_noise, seed, steps, cfgs, sampler_n
     if start_with_high:
         print("Running high noise model...")
         callback = latent_preview.prepare_callback(model_high_noise, steps)
-        
-        # FIX: The last step index must be (switching_step - 1) 
-        # because the sample function uses INCLUSIVE step indices.
-        # E.g., if switching_step is 2 (2 high-noise steps), the steps are 0 and 1. 
-        # The last step index is 1. The original code used 2.
+        # The last step index must be (switching_step - 1)
         end_step = min(last_step, switching_step - 1)
-        
         latent_image = comfy.sample.fix_empty_latent_channels(model_high_noise, latent_image)
         latent_image = comfy.sample.sample(model_high_noise, noise, steps, cfgs[0], sampler_name, scheduler, positive, negative, latent_image,
                                     denoise=denoise, disable_noise=end_wth_low or disable_noise, start_step=start_step, last_step=end_step,
