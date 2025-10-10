@@ -5,6 +5,7 @@ This repo is a fork from the original, due to that not being maintained since it
 These nodes are made to support "Mixture of Expert" Flow models with the architecture of Wan2.2 A14B (With a high noise expert and low noise expert).
 Instead of guessing the denoising step at which to swap from tyhe high noise model to the low noise model, this node automatically chanage to the low noise model when we reach the diffusion timestep at which the signal to noise ratio is supposed to be 1:1.
 
+<img width="689" height="573" alt="image" src="https://github.com/user-attachments/assets/7b9496b0-d43d-415e-9931-3db73ed35978" />
 
 ## Installation
 
