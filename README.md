@@ -1,4 +1,4 @@
-This repo was forked, due to the original not being maintained since it's creation, 2 months ago.
+This repo is a fork from the original, due to that not being maintained since it's creation.
 
 # KSampler for Wan 2.2 MoE for ComfyUI
 
