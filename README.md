@@ -1,5 +1,3 @@
-This repo is a fork from the original, due to that not being maintained since it's creation.
-
 # KSampler for Wan 2.2 MoE for ComfyUI
 
 These nodes are made to support "Mixture of Expert" Flow models with the architecture of Wan2.2 A14B (With a high noise expert and low noise expert).
@@ -14,7 +12,7 @@ To install this node, follow these steps:
 2. Restart ComfyUI to load the new node.
 
 ```bash
-git clone https://github.com/GalaxyTimeMachine/ComfyUI-WanMoeKSampler.git /path-to-ComfyUI/custom_nodes/WanMoeKSampler
+git clone https://github.com/stduhpf/ComfyUI-WanMoeKSampler.git /path/to/ComfyUI/custom_nodes/WanMoeKSampler
 ```
 
 ## Usage
