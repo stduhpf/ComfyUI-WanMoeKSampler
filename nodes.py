@@ -27,8 +27,8 @@ def wan_ksampler(
     start_step=None,
     last_step=None,
     force_full_denoise=False,
-    cfg_fall_ratio_high=0.5,  # independent fall ratio for high noise
-    cfg_fall_ratio_low=0.5,   # independent fall ratio for low noise
+    cfg_fall_ratio_high=0.5,
+    cfg_fall_ratio_low=0.5,
 ):
     latent_image = latent["samples"]
 
@@ -161,22 +161,22 @@ class WanMoeKSampler:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "model_high_noise": ("MODEL", {"tooltip": "First expert for denoising high noise region."}),
-                "model_low_noise": ("MODEL", {"tooltip": "Second expert for denoising low noise region."}),
-                "boundary": ("FLOAT", {"default": 0.875, "min": 0.0, "max": 1.0, "step": 0.001}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
-                "steps": ("INT", {"default": 20, "min": 1, "max": 10000}),
-                "cfg_high_noise": ("FLOAT", {"default": 6.0, "min": 0.0, "max": 100.0, "step": 0.1}),
-                "cfg_low_noise": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step": 0.1}),
-                "cfg_fall_ratio_high": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of steps (high noise) to decay CFG to 1.0"}),
-                "cfg_fall_ratio_low": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of steps (low noise) to decay CFG to 1.0"}),
-                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {}),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {}),
-                "sigma_shift": ("FLOAT", {"default": 12.0, "min": 0.0, "max": 100.0, "step": 0.01}),
-                "positive": ("CONDITIONING", {}),
-                "negative": ("CONDITIONING", {}),
-                "latent_image": ("LATENT", {}),
-                "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "model_high_noise": ("MODEL", {"tooltip": "High-noise expert model used for the early denoising phase."}),
+                "model_low_noise": ("MODEL", {"tooltip": "Low-noise expert model used for the later denoising phase."}),
+                "boundary": ("FLOAT", {"default": 0.875, "min": 0.0, "max": 1.0, "step": 0.001, "tooltip": "Timestep boundary where the sampler switches from high-noise to low-noise model."}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "tooltip": "Random seed for noise generation; controls reproducibility."}),
+                "steps": ("INT", {"default": 20, "min": 1, "max": 10000, "tooltip": "Total number of denoising steps to perform."}),
+                "cfg_high_noise": ("FLOAT", {"default": 6.0, "min": 0.0, "max": 100.0, "step": 0.1, "tooltip": "Initial CFG (Classifier-Free Guidance) scale for the high-noise model."}),
+                "cfg_low_noise": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step": 0.1, "tooltip": "Initial CFG scale for the low-noise model."}),
+                "cfg_fall_ratio_high": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of high-noise model steps during which CFG linearly falls from start value to 1.0."}),
+                "cfg_fall_ratio_low": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of low-noise model steps during which CFG linearly falls from start value to 1.0."}),
+                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"tooltip": "Sampling algorithm used during denoising."}),
+                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"tooltip": "Noise schedule controlling how noise is removed per step."}),
+                "sigma_shift": ("FLOAT", {"default": 12.0, "min": 0.0, "max": 100.0, "step": 0.01, "tooltip": "Sigma shift factor that modifies the noise distribution for both models."}),
+                "positive": ("CONDITIONING", {"tooltip": "Positive prompt conditioning (what you want to see)."}),
+                "negative": ("CONDITIONING", {"tooltip": "Negative prompt conditioning (what you want to avoid)."}),
+                "latent_image": ("LATENT", {"tooltip": "Input latent tensor to be denoised."}),
+                "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01, "tooltip": "Denoising strength; lower values retain more of the original latent structure."}),
             }
         }
 
@@ -212,31 +212,32 @@ class WanMoeKSamplerAdvanced:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "model_high_noise": ("MODEL", {}),
-                "model_low_noise": ("MODEL", {}),
-                "boundary": ("FLOAT", {"default": 0.875, "min": 0.0, "max": 1.0, "step": 0.001}),
-                "add_noise": (["enable", "disable"],),
-                "noise_seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
-                "steps": ("INT", {"default": 20, "min": 1, "max": 10000}),
-                "cfg_high_noise": ("FLOAT", {"default": 6.0, "min": 0.0, "max": 100.0, "step": 0.1}),
-                "cfg_low_noise": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step": 0.1}),
-                "cfg_fall_ratio_high": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
-                "cfg_fall_ratio_low": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
-                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {}),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {}),
-                "sigma_shift": ("FLOAT", {"default": 12.0, "min": 0.0, "max": 100.0, "step": 0.01}),
-                "positive": ("CONDITIONING", {}),
-                "negative": ("CONDITIONING", {}),
-                "latent_image": ("LATENT", {}),
-                "start_at_step": ("INT", {"default": 0, "min": 0, "max": 10000}),
-                "end_at_step": ("INT", {"default": 10000, "min": 0, "max": 10000}),
-                "return_with_leftover_noise": (["disable", "enable"],),
+                "model_high_noise": ("MODEL", {"tooltip": "High-noise expert model used for early denoising."}),
+                "model_low_noise": ("MODEL", {"tooltip": "Low-noise expert model used for later refinement."}),
+                "boundary": ("FLOAT", {"default": 0.875, "min": 0.0, "max": 1.0, "step": 0.001, "tooltip": "Boundary (t_moe) determining where to switch from high- to low-noise model."}),
+                "add_noise": (["enable", "disable"], {"tooltip": "Enable or disable noise addition at the start of denoising."}),
+                "noise_seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "tooltip": "Random seed for noise generation."}),
+                "steps": ("INT", {"default": 20, "min": 1, "max": 10000, "tooltip": "Number of total denoising steps."}),
+                "cfg_high_noise": ("FLOAT", {"default": 6.0, "min": 0.0, "max": 100.0, "step": 0.1, "tooltip": "Starting CFG scale for the high-noise model."}),
+                "cfg_low_noise": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step": 0.1, "tooltip": "Starting CFG scale for the low-noise model."}),
+                "cfg_fall_ratio_high": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of high-noise steps where CFG linearly decays to 1.0."}),
+                "cfg_fall_ratio_low": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of low-noise steps where CFG linearly decays to 1.0."}),
+                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"tooltip": "Select the sampler algorithm (e.g., euler, dpmpp_2m, etc.)."}),
+                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"tooltip": "Scheduler type controlling noise sigma progression."}),
+                "sigma_shift": ("FLOAT", {"default": 12.0, "min": 0.0, "max": 100.0, "step": 0.01, "tooltip": "Shift applied to sigma schedule for adjusting denoising behavior."}),
+                "positive": ("CONDITIONING", {"tooltip": "Positive text conditioning for guiding image generation."}),
+                "negative": ("CONDITIONING", {"tooltip": "Negative text conditioning for avoiding unwanted elements."}),
+                "latent_image": ("LATENT", {"tooltip": "Input latent image tensor."}),
+                "start_at_step": ("INT", {"default": 0, "min": 0, "max": 10000, "tooltip": "Optional: start denoising from this step index."}),
+                "end_at_step": ("INT", {"default": 10000, "min": 0, "max": 10000, "tooltip": "Optional: stop denoising at this step index."}),
+                "return_with_leftover_noise": (["disable", "enable"], {"tooltip": "If enabled, retains leftover noise in the output latent instead of full denoising."}),
             }
         }
 
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "sample"
     CATEGORY = "sampling"
+    DESCRIPTION = "Advanced version of the dual-model sampler with precise control over noise behavior and CFG decay."
 
     def sample(
         self,
