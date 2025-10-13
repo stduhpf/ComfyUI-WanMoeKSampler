@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import math # Added for ceil equivalent
 
 import comfy.sample
 import comfy.samplers
@@ -61,16 +62,28 @@ def wan_ksampler(
     low_noise_start_step = max(start_at, split_at_step)
     disable_pbar = not comfy.utils.PROGRESS_BAR_ENABLED
 
-    # --- Build configurable CFG schedules ---
+    # --- Build configurable CFG schedules (With corrected logic) ---
     def build_cfg_schedule(start_cfg, total_steps, ratio):
         if total_steps <= 1:
             return np.array([start_cfg])
-        fall_steps = int(total_steps * ratio)
+        
+        # Corrected logic to ensure smoother decay distribution (equivalent to math.ceil)
+        if ratio > 0.0:
+            # e.g., 7 * 0.50 = 3.5 -> 4 decay steps (to reach 1.0 at step 3)
+            fall_steps = int(total_steps * ratio + 0.99999999999999) 
+        else:
+            fall_steps = 0
+            
+        fall_steps = min(fall_steps, total_steps) # Boundary check
+        
         if fall_steps < 1:
             return np.ones(total_steps) * 1.0
+        
         decay = np.linspace(start_cfg, 1.0, fall_steps)
-        sustain = np.ones(total_steps - fall_steps)
+        sustain_len = total_steps - fall_steps
+        sustain = np.ones(sustain_len) * 1.0
         return np.concatenate([decay, sustain])
+
 
     cfg_high_schedule = build_cfg_schedule(cfgs[0], high_noise_end_step - start_at, cfg_fall_ratio_high)
     cfg_low_schedule = build_cfg_schedule(cfgs[1], end_at - low_noise_start_step, cfg_fall_ratio_low)
@@ -82,6 +95,10 @@ def wan_ksampler(
         latent_image = comfy.sample.fix_empty_latent_channels(model_high_noise, latent_image)
         current_latent = latent_image
         for i, cfg_val in enumerate(cfg_high_schedule, start=start_at):
+            
+            # --- CFG OUTPUT FOR TERMINAL ---
+            print(f"[WanMoE] Step {i}: High-Noise CFG is {cfg_val:.4f}")
+            
             current_latent = comfy.sample.sample(
                 model_high_noise,
                 noise,
@@ -111,6 +128,10 @@ def wan_ksampler(
         latent_image = comfy.sample.fix_empty_latent_channels(model_low_noise, latent_image)
         current_latent = latent_image
         for i, cfg_val in enumerate(cfg_low_schedule, start=low_noise_start_step):
+            
+            # --- CFG OUTPUT FOR TERMINAL ---
+            print(f"[WanMoE] Step {i}: Low-Noise CFG is {cfg_val:.4f}")
+
             current_latent = comfy.sample.sample(
                 model_low_noise,
                 noise,
