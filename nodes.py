@@ -66,23 +66,34 @@ def wan_ksampler(
     def build_cfg_schedule(start_cfg, total_steps, ratio):
         if total_steps <= 1:
             return np.array([start_cfg])
-        
-        # Corrected logic to ensure smoother decay distribution (equivalent to math.ceil)
-        if ratio > 0.0:
-            # e.g., 7 * 0.50 = 3.5 -> 4 decay steps (to reach 1.0 at step 3)
-            fall_steps = int(total_steps * ratio + 0.99999999999999) 
-        else:
-            fall_steps = 0
-            
-        fall_steps = min(fall_steps, total_steps) # Boundary check
-        
+    
+        # Base calculation: Use floor/int to determine the number of steps that actively decay.
+        # The linear space will then use this number + 1 points to include the start and end values.
+        fall_steps = int(total_steps * ratio)
+    
         if fall_steps < 1:
+            # If fall_steps is 0, or if total_steps is too small for a ratio, just return 1.0
             return np.ones(total_steps) * 1.0
-        
-        decay = np.linspace(start_cfg, 1.0, fall_steps)
-        sustain_len = total_steps - fall_steps
-        sustain = np.ones(sustain_len) * 1.0
-        return np.concatenate([decay, sustain])
+
+        # --- CRITICAL FIX: To distribute the decay across N steps, we need N+1 points. ---
+        # Example: 8 * 0.50 = 4. We need 5 points (Step 0 to Step 4) to decay across 4 transitions.
+        num_decay_points = fall_steps + 1 
+    
+        # Ensure we don't exceed the total available steps
+        num_decay_points = min(num_decay_points, total_steps)
+    
+        # The decay is now calculated over the required number of points
+        decay_points = np.linspace(start_cfg, 1.0, num_decay_points)
+
+        # The sustain section starts immediately after the decay points.
+        sustain_len = total_steps - num_decay_points
+    
+        if sustain_len <= 0:
+            return decay_points
+    
+        sustain_points = np.ones(sustain_len) * 1.0
+    
+        return np.concatenate([decay_points, sustain_points])
 
 
     cfg_high_schedule = build_cfg_schedule(cfgs[0], high_noise_end_step - start_at, cfg_fall_ratio_high)
