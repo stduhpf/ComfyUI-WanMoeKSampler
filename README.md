@@ -1,3 +1,16 @@
+When chaining multiple generations together (such as in SVI workflows or loopback pipelines), the original sampler node would inevitably fail, resulting in either a CUDA error: invalid argument crash or collapsed, muddy-brown latents.
+
+This occurred because the `set_shift` function was modifying the base model's model_sampling object directly in VRAM without cloning it first. As a result:
+
+Math Corruption: In sequential runs, the `sigma_shift` patch would recursively stack on top of itself. By the 3rd or 4th generation, the noise scheduler math was completely destroyed, outputting NaN values and resulting in brown/grey latents.
+
+Memory Leaks: Because the base model was permanently mutated, ComfyUI's native memory manager (cudaMallocAsync or native) could no longer safely offload the tensors from the GPU to System RAM, triggering a fatal CUDA pointer crash.
+
+The Fix:
+Added the native model.clone() method to the set_shift function inside nodes.py.
+
+By cloning the model before applying the MoE sigma shift, the node now creates a safe, temporary instance for each sampling step. The base model remains completely pristine in VRAM, preventing recursive math corruption and allowing ComfyUI's garbage collector to cleanly offload the model between heavy sequential runs.
+
 # KSampler for Wan 2.2 MoE for ComfyUI
 
 These nodes are made to support "Mixture of Expert" Flow models with the architecture of Wan2.2 A14B (With a high noise expert and low noise expert).
